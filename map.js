@@ -24,66 +24,34 @@ function createMarkers(data) {
             const position = marker.getLatLng();
             const lat = position.lat;
             const lng = position.lng;
-        
-            const formData = new FormData();
-            formData.append('id', place.id);
-            formData.append('nama', place.nama);
-            formData.append('kepala_sekolah', place.kepala_sekolah);
-            formData.append('jumlah_guru', place.jumlah_guru);
-            formData.append('jumlah_murid', place.jumlah_murid);
-            formData.append('keterangan', place.keterangan);
-            formData.append('latitude', lat);
-            formData.append('longitude', lng);
-        
-            // Send data using Fetch API
-            fetch('update.php', {
-                method: 'POST',
-                body: formData,
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Network response was not ok');
-                }
-                return response.text();
-            })
-            .then(data => {
-                console.log(data);
-            })
-            .catch(error => {
-                console.error('There was a problem with the fetch operation:', error);
-            });
+
+            // Show update popup
+            showUpdatePopup(place, lat, lng);
         });
-        
     });
 }
 
+// Function to handle map clicks
+function handleMapClick(e) {
+    // If there is an active updatePopup, close it
+    if (updatePopup) {
+        map.closePopup(updatePopup);
+        updatePopup = null;
+        return; // Prevent further execution
+    }
 
-// Function to fetch data from the server and create markers
-function fetchDataAndCreateMarkers() {
-    fetch('data.php')
-        .then(response => response.json())
-        .then(data => {
-            createMarkers(data);
-        })
-        .catch(error => console.error('Ada masalah dengan fetch:', error));
-}
-
-// Call the function to fetch data and create markers when the page loads
-window.onload = fetchDataAndCreateMarkers;
-
-function onMapClick(e) {
     // HTML form for POI information
     var formContent = '<form method="POST" id="form" class="custom-popup-content">' +
         '<label for="nama">Nama Sekolah:</label><br>' +
-        '<input type="text" id="nama" name="nama" required><br>' +
+        '<input type="text" id="nama" name="nama"  required><br>' +
         '<label for="id">ID Sekolah:</label><br>' +
-        '<input type="text" id="id" name="id" required><br>' +
+        '<input type="text" id="id" name="id" pattern="[0-9]*" required><br>' +
         '<label for="kepala_sekolah">Nama Kepala Sekolah:</label><br>' +
         '<input type="text" id="kepala_sekolah" name="kepala_sekolah" required><br>' +
         '<label for="jumlah_guru">Jumlah Guru:</label><br>' +
-        '<input type="number" id="jumlah_guru" name="jumlah_guru" required><br>' +
+        '<input type="text" id="jumlah_guru" name="jumlah_guru" required><br>' +
         '<label for="jumlah_murid">Jumlah Murid:</label><br>' +
-        '<input type="number" id="jumlah_murid" name="jumlah_murid" required><br>' +
+        '<input type="text" id="jumlah_murid" name="jumlah_murid" required><br>' +
         '<label for="keterangan">Keterangan:</label><br>' +
         '<textarea id="keterangan" name="keterangan" required></textarea><br>' +
         '<label for="latitude">Latitude:</label><br>' +
@@ -98,7 +66,7 @@ function onMapClick(e) {
     marker.bindPopup(formContent).openPopup();
 
     // Handle form submission
-    document.getElementById("form").addEventListener("submit", function (event) {
+    document.getElementById("form").addEventListener("submit", function(event) {
         event.preventDefault(); // Prevent default form submission behavior
 
         // Get form data
@@ -120,6 +88,8 @@ function onMapClick(e) {
                         "<br>Jumlah Murid: " + poiData.jumlah_murid +
                         "<br>Keterangan: " + poiData.keterangan;
                     marker.bindPopup(popupContent).openPopup();
+                    // Refresh the page after updating marker data
+                    window.location.reload();
                 } else {
                     // If there is an error while saving data
                     console.error('Failed to save data.');
@@ -131,4 +101,79 @@ function onMapClick(e) {
 }
 
 // Add event listener for map clicks
-map.on('click', onMapClick);
+map.on('click', handleMapClick);
+
+// Variable to store the updatePopup
+var updatePopup;
+
+// Function to show update popup for an existing marker
+function showUpdatePopup(place, lat, lng) {
+    const updatePopupContent = `
+        <b>${place.nama}</b><br>
+        <form id="updateForm">
+            <label type="hidden" for="id">ID Sekolah:</label><br>
+            <input type="hidden" id="id" name="id" value="${place.id}" required><br>
+            <label for="nama">Nama Sekolah:</label><br>
+            <input type="text" id="nama" name="nama" value="${place.nama}" required><br>
+            <label for="kepala_sekolah">Nama Kepala Sekolah:</label><br>
+            <input type="text" id="kepala_sekolah" name="kepala_sekolah" value="${place.kepala_sekolah}" required><br>
+            <label for="jumlah_guru">Jumlah Guru:</label><br>
+            <input type="text" id="jumlah_guru" name="jumlah_guru" value="${place.jumlah_guru}" required><br>
+            <label for="jumlah_murid">Jumlah Murid:</label><br>
+            <input type="text" id="jumlah_murid" name="jumlah_murid" value="${place.jumlah_murid}" required><br>
+            <label for="keterangan">Keterangan:</label><br>
+            <textarea id="keterangan" name="keterangan" required>${place.keterangan}</textarea><br>
+            <input type="hidden" id="latitude" name="latitude" value="${lat}">
+            <input type="hidden" id="longitude" name="longitude" value="${lng}">
+            <input type="submit" value="Update">
+        </form>
+    `;
+
+    updatePopup = L.popup()
+        .setLatLng([lat, lng])
+        .setContent(updatePopupContent)
+        .openOn(map);
+
+    // Handle form submission
+    document.getElementById("updateForm").addEventListener("submit", function(event) {
+        event.preventDefault(); // Prevent default form submission behavior
+
+        // Get form data
+        const formData = new FormData(this);
+
+        // Send data using Fetch API
+        fetch('update.php', {
+            method: 'POST',
+            body: formData,
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.text();
+        })
+        .then(data => {
+            console.log(data);
+            // Close popup after update
+            map.closePopup(updatePopup);
+            // Refresh the page after updating marker data
+            window.location.reload();
+        })
+        .catch(error => {
+            console.error('There was a problem with the fetch operation:', error);
+        });
+    });
+}
+
+// Function to fetch data from the server and create markers
+function fetchDataAndCreateMarkers() {
+    fetch('data.php')
+        .then(response => response.json())
+        .then(data => {
+            createMarkers(data);
+        })
+        .catch(error => console.error('Ada masalah dengan fetch:', error));
+}
+
+// Call the function to fetch data and create markers when the page loads
+window.onload = fetchDataAndCreateMarkers;
